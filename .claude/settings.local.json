@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(winget install:*)",
+      "Bash(where git:*)",
+      "Bash(if [ ! -d \"C:/src/flutter\" ])",
+      "Bash(then cd C:/src)",
+      "Bash(git clone:*)",
+      "Bash(else echo \"Flutter already exists at C:/src/flutter\")",
+      "Bash(fi)",
+      "Bash(/c/src/flutter/bin/flutter:*)",
+      "Bash(timeout 120 /c/src/flutter/bin/flutter run:*)",
+      "Bash(tee:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
