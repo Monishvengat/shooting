@@ -12,10 +12,12 @@ class BookingPage extends StatefulWidget {
 
 class _BookingPageState extends State<BookingPage> {
   DateTime? _selectedDate;
+  double _rangeMeters = 25.0; // Default range in meters
   String? _selectedStartTime;
   String? _selectedEndTime;
   int? _selectedLane;
   String? _selectedWeapon;
+  String? _selectedGunName;
   String? _selectedCoach;
 
   @override
@@ -47,6 +49,11 @@ class _BookingPageState extends State<BookingPage> {
             _buildDateSelector(),
             SizedBox(height: 25),
 
+            _buildSectionTitle('Select Range Distance'),
+            SizedBox(height: 10),
+            _buildRangeSelector(),
+            SizedBox(height: 25),
+
             _buildSectionTitle('Select Time Slot'),
             SizedBox(height: 10),
             _buildTimeSlotSelectors(provider),
@@ -57,10 +64,17 @@ class _BookingPageState extends State<BookingPage> {
             _buildLaneSelector(provider),
             SizedBox(height: 25),
 
-            _buildSectionTitle('Select Weapon'),
+            _buildSectionTitle('Select Weapon Type'),
             SizedBox(height: 10),
             _buildWeaponSelector(provider),
             SizedBox(height: 25),
+
+            if (_selectedWeapon != null) ...[
+              _buildSectionTitle('Select Gun Name'),
+              SizedBox(height: 10),
+              _buildGunNameSelector(provider),
+              SizedBox(height: 25),
+            ],
 
             _buildSectionTitle('Select Coach (Optional)'),
             SizedBox(height: 10),
@@ -140,6 +154,71 @@ class _BookingPageState extends State<BookingPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRangeSelector() {
+    final ranges = [10.0, 25.0, 50.0];
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: ranges.map((range) {
+        final isSelected = _rangeMeters == range;
+        return InkWell(
+          onTap: () {
+            setState(() {
+              _rangeMeters = range;
+            });
+          },
+          child: Container(
+            width: 100,
+            height: 80,
+            decoration: BoxDecoration(
+              color: isSelected ? Color(0xFF00ff88).withOpacity(0.2) : Color(0xFF1a1f35),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? Color(0xFF00ff88) : Color(0xFF00ff88).withOpacity(0.3),
+                width: 2,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: Color(0xFF00ff88).withOpacity(0.5),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.straighten,
+                  color: isSelected ? Color(0xFF00ff88) : Colors.white54,
+                  size: 28,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '${range.toInt()} m',
+                  style: TextStyle(
+                    color: isSelected ? Color(0xFF00ff88) : Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                if (isSelected)
+                  Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF00ff88),
+                    size: 16,
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -333,6 +412,7 @@ class _BookingPageState extends State<BookingPage> {
             onTap: () {
               setState(() {
                 _selectedWeapon = weapon.name;
+                _selectedGunName = null; // Reset gun name when weapon type changes
               });
             },
             child: Container(
@@ -385,6 +465,20 @@ class _BookingPageState extends State<BookingPage> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildGunNameSelector(BookingProvider provider) {
+    return _buildDropdown(
+      value: _selectedGunName,
+      hint: 'Select Gun Name',
+      icon: Icons.gps_fixed,
+      items: provider.gunNames,
+      onChanged: (value) {
+        setState(() {
+          _selectedGunName = value;
+        });
+      },
     );
   }
 
@@ -455,6 +549,7 @@ class _BookingPageState extends State<BookingPage> {
         _selectedEndTime != null &&
         _selectedLane != null &&
         _selectedWeapon != null &&
+        _selectedGunName != null &&
         (_selectedStartTime != null && _selectedEndTime != null
             ? provider.calculateDuration(_selectedStartTime!, _selectedEndTime!) <= 3
             : false);
@@ -509,7 +604,7 @@ class _BookingPageState extends State<BookingPage> {
       startTime: _selectedStartTime!,
       endTime: _selectedEndTime!,
       lane: _selectedLane!,
-      weapon: _selectedWeapon!,
+      weapon: '$_selectedWeapon - $_selectedGunName',
       coach: _selectedCoach,
       status: BookingStatus.upcoming,
     );

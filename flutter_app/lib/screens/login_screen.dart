@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'booking_history_screen.dart';
+import 'change_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -11,6 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -19,20 +23,85 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleSubmit() {
-    // Mock authentication - navigate to booking history
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => BookingHistoryScreen()),
+  Future<void> _handleSubmit() async {
+    // Validate input
+    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
+      _showError('Please enter email and password');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Make API call to login endpoint
+      final response = await http.post(
+        Uri.parse('http://localhost:3000/v1/auth/login'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+        }),
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['token'];
+        final isFirstLogin = data['isFirstLogin'] ?? false;
+        final mustChangePassword = data['mustChangePassword'] ?? false;
+
+        // Check if user must change password
+        if (isFirstLogin || mustChangePassword) {
+          // Redirect to change password screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChangePasswordScreen(
+                token: token,
+                defaultPassword: _passwordController.text,
+              ),
+            ),
+          );
+        } else {
+          // Normal login - go to member dashboard with token
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BookingHistoryScreen(token: token),
+            ),
+          );
+        }
+      } else {
+        final error = jsonDecode(response.body);
+        _showError(error['message'] ?? 'Login failed');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showError('Error: $e');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
     );
   }
 
   void _handleGoogleSignIn() {
-    // Mock Google sign-in - navigate to booking history
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => BookingHistoryScreen()),
-    );
+    // TODO: Implement Google sign-in
+    _showError('Google sign-in not yet implemented');
   }
 
   @override

@@ -15,6 +15,7 @@ class EditBookingScreen extends StatefulWidget {
 
 class _EditBookingScreenState extends State<EditBookingScreen> {
   late DateTime _selectedDate;
+  double _rangeMeters = 25.0; // Default range in meters
   late String _selectedStartTime;
   late String _selectedEndTime;
   late int _selectedLane;
@@ -101,6 +102,11 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
             _buildSectionTitle('Update Date'),
             SizedBox(height: 10),
             _buildDateSelector(),
+            SizedBox(height: 25),
+
+            _buildSectionTitle('Update Range Distance'),
+            SizedBox(height: 10),
+            _buildRangeSelector(),
             SizedBox(height: 25),
 
             _buildSectionTitle('Update Time Slot'),
@@ -194,6 +200,71 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRangeSelector() {
+    final ranges = [10.0, 25.0, 50.0];
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: ranges.map((range) {
+        final isSelected = _rangeMeters == range;
+        return InkWell(
+          onTap: () {
+            setState(() {
+              _rangeMeters = range;
+            });
+          },
+          child: Container(
+            width: 100,
+            height: 80,
+            decoration: BoxDecoration(
+              color: isSelected ? Color(0xFF00ff88).withOpacity(0.2) : Color(0xFF1a1f35),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? Color(0xFF00ff88) : Color(0xFF00ff88).withOpacity(0.3),
+                width: 2,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: Color(0xFF00ff88).withOpacity(0.5),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.straighten,
+                  color: isSelected ? Color(0xFF00ff88) : Colors.white54,
+                  size: 28,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '${range.toInt()} m',
+                  style: TextStyle(
+                    color: isSelected ? Color(0xFF00ff88) : Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                if (isSelected)
+                  Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF00ff88),
+                    size: 16,
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

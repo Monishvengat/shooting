@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/booking.dart';
 import '../models/weapon.dart';
 import '../models/coach.dart';
@@ -8,6 +10,7 @@ class BookingProvider with ChangeNotifier {
   List<Weapon> _weapons = [];
   List<Coach> _coaches = [];
   final List<int> _lanes = [1, 2, 3, 4, 5, 6, 7, 8];
+  final List<String> _gunNames = [];
 
   final List<String> _timeSlots = [
     '8:00 AM',
@@ -39,6 +42,42 @@ class BookingProvider with ChangeNotifier {
 
   BookingProvider() {
     _initializeMockData();
+    fetchCoachesAndGuns();
+  }
+
+  Future<void> fetchCoachesAndGuns() async {
+    try {
+      // Fetch coaches from API
+      final coachesResponse = await http.get(
+        Uri.parse('http://localhost:3000/v1/resources/coaches'),
+      );
+
+      // Fetch gun names from API
+      final gunsResponse = await http.get(
+        Uri.parse('http://localhost:3000/v1/resources/gun-names'),
+      );
+
+      if (coachesResponse.statusCode == 200) {
+        final data = json.decode(coachesResponse.body);
+        final List<dynamic> coachesData = data['coaches'] ?? [];
+        _coaches = coachesData.map((c) => Coach(
+          id: c['_id'],
+          name: c['name'],
+          specialty: (c['specialization'] as List).join(', '),
+        )).toList();
+        notifyListeners();
+      }
+
+      if (gunsResponse.statusCode == 200) {
+        final data = json.decode(gunsResponse.body);
+        final List<dynamic> gunsData = data['gunNames'] ?? [];
+        _gunNames.clear();
+        _gunNames.addAll(gunsData.map((g) => g['name'] as String).toList());
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error fetching coaches and guns: $e');
+    }
   }
 
   List<Booking> get bookings => _bookings;
@@ -46,22 +85,15 @@ class BookingProvider with ChangeNotifier {
   List<Coach> get coaches => _coaches;
   List<int> get lanes => _lanes;
   List<String> get timeSlots => _timeSlots;
+  List<String> get gunNames => _gunNames;
 
   void _initializeMockData() {
     _weapons = [
-      Weapon(id: '1', name: 'Pistol', type: 'Handgun'),
-      Weapon(id: '2', name: 'Rifle', type: 'Long Gun'),
-      Weapon(id: '3', name: 'Air Gun', type: 'Pellet'),
-      Weapon(id: '4', name: 'Shotgun', type: 'Long Gun'),
-      Weapon(id: '5', name: 'Revolver', type: 'Handgun'),
+      Weapon(id: '1', name: 'Pistol', type: 'Select from gun list'),
+      Weapon(id: '2', name: 'Rifle', type: 'Select from gun list'),
     ];
 
-    _coaches = [
-      Coach(id: '1', name: 'John Smith', specialty: 'Pistol Training'),
-      Coach(id: '2', name: 'Sarah Johnson', specialty: 'Rifle Expert'),
-      Coach(id: '3', name: 'Mike Davis', specialty: 'Beginner Training'),
-      Coach(id: '4', name: 'Emily Brown', specialty: 'Advanced Tactics'),
-    ];
+    _coaches = [];
 
     _bookings = [
       Booking(

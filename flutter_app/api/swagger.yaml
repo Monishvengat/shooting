@@ -1,0 +1,875 @@
+openapi: 3.0.3
+info:
+  title: Shooting Arena Booking API
+  description: |
+    REST API for the Elite Shooting Arena slot and lane booking system.
+    This API provides endpoints for user authentication, booking management,
+    and arena information.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@eliteshootingarena.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.eliteshootingarena.com/v1
+    description: Production server
+  - url: https://staging-api.eliteshootingarena.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Development server
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization endpoints
+  - name: Bookings
+    description: Booking management operations
+  - name: Arena
+    description: Arena information and availability
+  - name: Users
+    description: User profile and preferences
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: SecurePassword123!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT authentication token
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+                  expiresIn:
+                    type: integer
+                    description: Token expiration time in seconds
+                    example: 3600
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+                - phone
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: newuser@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: SecurePassword123!
+                name:
+                  type: string
+                  example: John Doe
+                phone:
+                  type: string
+                  pattern: '^\+?[1-9]\d{1,14}$'
+                  example: +1234567890
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate user session and token
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /bookings:
+    get:
+      tags:
+        - Bookings
+      summary: Get all user bookings
+      description: Retrieve all bookings for the authenticated user
+      operationId: getBookings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter bookings by status
+          required: false
+          schema:
+            type: string
+            enum: [all, upcoming, completed, cancelled]
+            default: all
+        - name: startDate
+          in: query
+          description: Filter bookings from this date
+          required: false
+          schema:
+            type: string
+            format: date
+            example: '2025-01-01'
+        - name: endDate
+          in: query
+          description: Filter bookings until this date
+          required: false
+          schema:
+            type: string
+            format: date
+            example: '2025-12-31'
+        - name: page
+          in: query
+          description: Page number for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Bookings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Booking'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Bookings
+      summary: Create new booking
+      description: Create a new lane booking for shooting practice
+      operationId: createBooking
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreate'
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Booking conflict - time slot or lane not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bookings/{bookingId}:
+    get:
+      tags:
+        - Bookings
+      summary: Get booking by ID
+      description: Retrieve a specific booking by its unique identifier
+      operationId: getBookingById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Unique booking identifier
+          schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Booking found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Bookings
+      summary: Update booking
+      description: Update an existing booking (only upcoming bookings can be modified)
+      operationId: updateBooking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Unique booking identifier
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingUpdate'
+      responses:
+        '200':
+          description: Booking updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Booking conflict or cannot modify completed/cancelled booking
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Bookings
+      summary: Cancel booking
+      description: Cancel an upcoming booking
+      operationId: cancelBooking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Unique booking identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Booking cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Booking cancelled successfully
+                  booking:
+                    $ref: '#/components/schemas/Booking'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Cannot cancel completed or already cancelled booking
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /arena/availability:
+    get:
+      tags:
+        - Arena
+      summary: Check lane availability
+      description: Get available time slots for specified date and lane
+      operationId: checkAvailability
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: Date to check availability
+          schema:
+            type: string
+            format: date
+            example: '2025-12-15'
+        - name: lane
+          in: query
+          required: false
+          description: Specific lane number (1-10)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+      responses:
+        '200':
+          description: Availability retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  lanes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LaneAvailability'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /arena/info:
+    get:
+      tags:
+        - Arena
+      summary: Get arena information
+      description: Retrieve shooting arena location, contact, and operating hours
+      operationId: getArenaInfo
+      responses:
+        '200':
+          description: Arena information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArenaInfo'
+
+  /arena/weapons:
+    get:
+      tags:
+        - Arena
+      summary: Get available weapons
+      description: Retrieve list of available weapons for booking
+      operationId: getWeapons
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Weapons list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weapons:
+                    type: array
+                    items:
+                      type: string
+                    example: ["Pistol", "Rifle", "Shotgun"]
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /arena/coaches:
+    get:
+      tags:
+        - Arena
+      summary: Get available coaches
+      description: Retrieve list of available coaches with their specializations
+      operationId: getCoaches
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Coaches list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coaches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Coach'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Retrieve authenticated user's profile information
+      operationId: getUserProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update authenticated user's profile information
+      operationId: updateUserProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                phone:
+                  type: string
+                  example: +1234567890
+                preferences:
+                  type: object
+                  properties:
+                    notifications:
+                      type: boolean
+                    newsletter:
+                      type: boolean
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          example: John Doe
+        phone:
+          type: string
+          example: +1234567890
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-01-01T12:00:00Z'
+        preferences:
+          type: object
+          properties:
+            notifications:
+              type: boolean
+            newsletter:
+              type: boolean
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        userId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        date:
+          type: string
+          format: date
+          example: '2025-12-15'
+        startTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: '14:00'
+        endTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: '16:00'
+        duration:
+          type: number
+          format: float
+          description: Duration in hours
+          example: 2.0
+        lane:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 5
+        weapon:
+          type: string
+          example: Pistol
+        coach:
+          type: string
+          nullable: true
+          example: Mike Johnson
+        status:
+          type: string
+          enum: [upcoming, completed, cancelled]
+          example: upcoming
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-12-01T10:30:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2025-12-01T10:30:00Z'
+
+    BookingCreate:
+      type: object
+      required:
+        - date
+        - startTime
+        - endTime
+        - lane
+        - weapon
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2025-12-15'
+        startTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: '14:00'
+        endTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: '16:00'
+        lane:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 5
+        weapon:
+          type: string
+          example: Pistol
+        coach:
+          type: string
+          nullable: true
+          example: Mike Johnson
+
+    BookingUpdate:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2025-12-15'
+        startTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: '14:00'
+        endTime:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: '16:00'
+        lane:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 5
+        weapon:
+          type: string
+          example: Pistol
+        coach:
+          type: string
+          nullable: true
+          example: Mike Johnson
+
+    LaneAvailability:
+      type: object
+      properties:
+        lane:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 5
+        availableSlots:
+          type: array
+          items:
+            type: object
+            properties:
+              startTime:
+                type: string
+                example: '08:00'
+              endTime:
+                type: string
+                example: '20:00'
+        bookedSlots:
+          type: array
+          items:
+            type: object
+            properties:
+              startTime:
+                type: string
+                example: '14:00'
+              endTime:
+                type: string
+                example: '16:00'
+
+    ArenaInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Elite Shooting Arena
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+              example: 123 Range Road
+            city:
+              type: string
+              example: Sport City
+            state:
+              type: string
+              example: Metro Area
+            zipCode:
+              type: string
+              example: '560001'
+            country:
+              type: string
+              example: USA
+        phone:
+          type: string
+          example: +1234567890
+        email:
+          type: string
+          format: email
+          example: info@eliteshootingarena.com
+        operatingHours:
+          type: object
+          properties:
+            weekdays:
+              type: string
+              example: '8:00 AM - 8:00 PM'
+            weekends:
+              type: string
+              example: '9:00 AM - 6:00 PM'
+        location:
+          type: object
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 37.7749
+            longitude:
+              type: number
+              format: float
+              example: -122.4194
+
+    Coach:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Mike Johnson
+        specialization:
+          type: array
+          items:
+            type: string
+          example: ["Pistol", "Rifle"]
+        experience:
+          type: integer
+          description: Years of experience
+          example: 10
+        rating:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+          example: 4.8
+        available:
+          type: boolean
+          example: true
+
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 5
+        totalItems:
+          type: integer
+          example: 95
+        itemsPerPage:
+          type: integer
+          example: 20
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+          example: Invalid input parameters
+        code:
+          type: string
+          example: INVALID_INPUT
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-12-07T10:30:00Z'
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required or token invalid/expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Unauthorized
+            message: Authentication token is missing or invalid
+            code: AUTH_REQUIRED
+            timestamp: '2025-12-07T10:30:00Z'
+
+    BadRequestError:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Bad Request
+            message: Invalid input parameters
+            code: INVALID_INPUT
+            timestamp: '2025-12-07T10:30:00Z'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Not Found
+            message: The requested resource was not found
+            code: NOT_FOUND
+            timestamp: '2025-12-07T10:30:00Z'
