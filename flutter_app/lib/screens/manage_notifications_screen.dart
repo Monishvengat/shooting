@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'dart:html' as html;
 
 class ManageNotificationsScreen extends StatefulWidget {
   final String token;
@@ -424,19 +426,33 @@ class _UploadNotificationDialogState extends State<_UploadNotificationDialog> {
     super.dispose();
   }
 
-  Future<void> _pickFile() async {
+  void _pickFile() {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
-      );
+      // Create a file input element for web
+      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
+      uploadInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.txt';
+      uploadInput.click();
 
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _selectedFile = result.files.first;
-          _fileName = _selectedFile!.name;
-        });
-      }
+      uploadInput.onChange.listen((e) {
+        final files = uploadInput.files;
+        if (files != null && files.isNotEmpty) {
+          final file = files[0];
+          final reader = html.FileReader();
+
+          reader.readAsArrayBuffer(file);
+          reader.onLoadEnd.listen((e) {
+            final bytes = reader.result as List<int>?;
+            setState(() {
+              _selectedFile = PlatformFile(
+                name: file.name,
+                size: file.size,
+                bytes: bytes != null ? Uint8List.fromList(bytes) : null,
+              );
+              _fileName = file.name;
+            });
+          });
+        }
+      });
     } catch (e) {
       _showError('Failed to pick file: $e');
     }
@@ -460,11 +476,12 @@ class _UploadNotificationDialogState extends State<_UploadNotificationDialog> {
       request.headers['Authorization'] = 'Bearer ${widget.token}';
       request.fields['title'] = _titleController.text;
       request.fields['message'] = _messageController.text;
+      // Model defaults: targetAudience='all', type='info', priority='normal'
 
       if (_selectedFile != null && _selectedFile!.bytes != null) {
         request.files.add(
           http.MultipartFile.fromBytes(
-            'file',
+            'attachments',
             _selectedFile!.bytes!,
             filename: _selectedFile!.name,
           ),
@@ -478,8 +495,9 @@ class _UploadNotificationDialogState extends State<_UploadNotificationDialog> {
         widget.onSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Notification uploaded successfully!'),
+            content: Text('✓ Notification sent to all members successfully!'),
             backgroundColor: Color(0xFF00ff88),
+            duration: Duration(seconds: 4),
           ),
         );
       } else {
@@ -517,16 +535,17 @@ class _UploadNotificationDialogState extends State<_UploadNotificationDialog> {
         ),
         child: Form(
           key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Upload Notification',
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Upload Notification',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -540,6 +559,32 @@ class _UploadNotificationDialogState extends State<_UploadNotificationDialog> {
                 ],
               ),
               SizedBox(height: 24),
+
+              // Info banner
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Color(0xFF00ff88).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Color(0xFF00ff88).withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Color(0xFF00ff88), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This notification will be sent to all members',
+                        style: TextStyle(
+                          color: Color(0xFF00ff88),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 20),
 
               // Notification Title
               Text(
@@ -692,9 +737,10 @@ class _UploadNotificationDialogState extends State<_UploadNotificationDialog> {
                             ),
                           ),
                   ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -749,19 +795,33 @@ class _EditNotificationDialogState extends State<_EditNotificationDialog> {
     super.dispose();
   }
 
-  Future<void> _pickFile() async {
+  void _pickFile() {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
-      );
+      // Create a file input element for web
+      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
+      uploadInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.txt';
+      uploadInput.click();
 
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _selectedFile = result.files.first;
-          _fileName = _selectedFile!.name;
-        });
-      }
+      uploadInput.onChange.listen((e) {
+        final files = uploadInput.files;
+        if (files != null && files.isNotEmpty) {
+          final file = files[0];
+          final reader = html.FileReader();
+
+          reader.readAsArrayBuffer(file);
+          reader.onLoadEnd.listen((e) {
+            final bytes = reader.result as List<int>?;
+            setState(() {
+              _selectedFile = PlatformFile(
+                name: file.name,
+                size: file.size,
+                bytes: bytes != null ? Uint8List.fromList(bytes) : null,
+              );
+              _fileName = file.name;
+            });
+          });
+        }
+      });
     } catch (e) {
       _showError('Failed to pick file: $e');
     }
@@ -786,10 +846,14 @@ class _EditNotificationDialogState extends State<_EditNotificationDialog> {
       request.fields['title'] = _titleController.text;
       request.fields['message'] = _messageController.text;
 
+      // Ensure targetAudience is set to 'all' for member visibility
+      request.fields['targetAudience'] = 'all';
+      request.fields['type'] = 'announcement';
+
       if (_selectedFile != null && _selectedFile!.bytes != null) {
         request.files.add(
           http.MultipartFile.fromBytes(
-            'file',
+            'attachments',
             _selectedFile!.bytes!,
             filename: _selectedFile!.name,
           ),
@@ -803,8 +867,9 @@ class _EditNotificationDialogState extends State<_EditNotificationDialog> {
         widget.onSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Notification updated successfully!'),
+            content: Text('✓ Notification updated and sent to all members!'),
             backgroundColor: Color(0xFF00ff88),
+            duration: Duration(seconds: 4),
           ),
         );
       } else {
